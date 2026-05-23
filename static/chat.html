@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>林黛玉Agent · 学生信息助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== 登录界面 ========== */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s ease;
+        }
+
+        .login-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 380px;
+            max-width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .login-card h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 22px;
+        }
+
+        .login-card .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #d0c5b5;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: #4a6741;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #4a6741 0%, #5a7d52 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+
+        .login-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74, 103, 65, 0.3);
+        }
+
+        .login-btn:disabled {
+            background: #c0c0c0;
+            cursor: not-allowed;
+        }
+
+        .login-error {
+            color: #ff4d4f;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 12px;
+            min-height: 18px;
+        }
+
+        .quick-login {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+
+        .quick-login-title {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .quick-login-btns {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 6px 14px;
+            background: #f5f0e8;
+            border: 1px solid #d0c5b5;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-btn:hover {
+            border-color: #4a6741;
+            color: #4a6741;
+            background: #f0f5ee;
+        }
+
+        /* ========== 顶部标题栏 ========== */
+        .header {
+            background: linear-gradient(90deg, #2c3e50 0%, #4a6741 100%);
+            color: #f5f0e8;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b9dc3 0%, #d4a5a5 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .user-info {
+            text-align: right;
+            font-size: 13px;
+        }
+
+        .user-name {
+            font-weight: 500;
+        }
+
+        .user-role {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .logout-btn {
+            padding: 6px 14px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #52c41a;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connecting {
+            background: #faad14;
+        }
+
+        .status-dot.error {
+            background: #ff4d4f;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ========== 聊天区域 ========== */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.user .msg-avatar {
+            background: #4a6741;
+            color: white;
+        }
+
+        .message.assistant .msg-avatar {
+            background: linear-gradient(135deg, #8b9dc3 0%, #d4a5a5 100%);
+        }
+
+        .msg-content {
+            padding: 12px 16px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .message.user .msg-content {
+            background: #4a6741;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .msg-content {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* 思考过程 / 工具调用 */
+        .thinking-box {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .thinking-box.thinking {
+            background: #f0f0f0;
+            color: #666;
+            border-left: 3px solid #8b9dc3;
+        }
+
+        .thinking-box.tool-call {
+            background: #e6f7ff;
+            color: #096dd9;
+            border-left: 3px solid #1890ff;
+        }
+
+        .thinking-box.tool-result {
+            background: #f6ffed;
+            color: #389e0d;
+            border-left: 3px solid #52c41a;
+        }
+
+        .thinking-box.error {
+            background: #fff2f0;
+            color: #cf1322;
+            border-left: 3px solid #ff4d4f;
+        }
+
+        .thinking-label {
+            font-weight: 600;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 16px;
+            background: #4a6741;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* ========== 输入区域 ========== */
+        .input-area {
+            background: white;
+            padding: 16px 20px;
+            border-top: 1px solid #e0d5c5;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-box {
+            flex: 1;
+            position: relative;
+        }
+
+        .input-box textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #d0c5b5;
+            border-radius: 20px;
+            resize: none;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 120px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .input-box textarea:focus {
+            border-color: #4a6741;
+        }
+
+        .input-box textarea:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #4a6741 0%, #5a7d52 100%);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(74, 103, 65, 0.3);
+        }
+
+        .send-btn:disabled {
+            background: #c0c0c0;
+            cursor: not-allowed;
+        }
+
+        /* ========== 欢迎语 ========== */
+        .welcome {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+        }
+
+        .welcome h2 {
+            font-size: 24px;
+            color: #4a6741;
+            margin-bottom: 12px;
+            font-weight: 400;
+        }
+
+        .welcome p {
+            font-size: 14px;
+            line-height: 2;
+        }
+
+        .welcome .examples {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .example-chip {
+            padding: 6px 14px;
+            background: white;
+            border: 1px solid #d0c5b5;
+            border-radius: 16px;
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-chip:hover {
+            border-color: #4a6741;
+            color: #4a6741;
+            background: #f0f5ee;
+        }
+
+        /* 滚动条美化 */
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #c0b5a5;
+            border-radius: 3px;
+        }
+
+        /* ========== 移动端适配 ========== */
+        @media (max-width: 640px) {
+            .header {
+                padding: 12px 16px;
+            }
+            .header-right {
+                gap: 8px;
+            }
+            .user-info {
+                display: none;
+            }
+            .chat-container {
+                padding: 12px;
+            }
+            .message {
+                max-width: 92%;
+            }
+            .input-area {
+                padding: 12px;
+            }
+            .login-card {
+                padding: 28px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <h2>🌸 林黛玉Agent</h2>
+            <div class="subtitle">学生信息管理系统 · 请登录</div>
+
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="loginUsername" placeholder="用户名 / 学号 / 工号" 
+                    value="admin" onkeydown="if(event.key==='Enter')login()">
+            </div>
+
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPassword" placeholder="密码" 
+                    value="admin123" onkeydown="if(event.key==='Enter')login()">
+            </div>
+
+            <button class="login-btn" id="loginBtn" onclick="login()">登 录</button>
+            <div class="login-error" id="loginError"></div>
+
+            <div class="quick-login">
+                <div class="quick-login-title">快速登录（开发测试）</div>
+                <div class="quick-login-btns">
+                    <button class="quick-btn" onclick="quickLogin('admin','admin123')">管理员</button>
+                    <button class="quick-btn" onclick="quickLogin('T001','teacher123')">老师</button>
+                    <button class="quick-btn" onclick="quickLogin('1001','student123')">学生</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div class="header">
+        <div class="header-left">
+            <div class="avatar">🌸</div>
+            <div>
+                <div class="header-title">林黛玉Agent</div>
+                <div class="header-subtitle">学生信息管理系统 · 智能助手</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="user-info" id="userInfo">
+                <div class="user-name" id="userName">-</div>
+                <div class="user-role" id="userRole">-</div>
+            </div>
+            <button class="logout-btn" onclick="logout()">退出</button>
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">在线</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="welcome" id="welcomeMsg">
+            <h2>🌸 林黛玉</h2>
+            <p>这位客官安好。今儿个怎么有空来潇湘馆坐坐？<br>
+            若是来问那些学生簿册的事，我倒是可以帮着翻翻。<br>
+            若是想聊些诗词典故，我也略知一二。</p>
+            <div class="examples">
+                <div class="example-chip" onclick="sendExample('查一下学生 1001 的成绩')">查学生成绩</div>
+                <div class="example-chip" onclick="sendExample('JAVA-01 班级就业情况如何？')">查班级就业</div>
+                <div class="example-chip" onclick="sendExample('红楼梦里黛玉葬花是怎么回事？')">黛玉葬花</div>
+                <div class="example-chip" onclick="sendExample('草船借箭的故事')">草船借箭</div>
+                <div class="example-chip" onclick="sendExample('哪个班级就业薪资最高？')">薪资排行</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-box">
+            <textarea id="messageInput" rows="1" placeholder="在此输入您的问题..." 
+                onkeydown="handleKeydown(event)"></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+    </div>
+
+    <script>
+        const API_URL = '/api/v1/lin-daiyu/chat';
+        const AUTH_URL = '/api/v1/auth/login';
+        let sessionId = null;
+        let isStreaming = false;
+        let currentAssistantDiv = null;
+        let currentMessageContent = null;
+        let accessToken = localStorage.getItem('ldy_token');
+        let userInfo = JSON.parse(localStorage.getItem('ldy_user') || '{}');
+
+        const loginOverlay = document.getElementById('loginOverlay');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginError = document.getElementById('loginError');
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const userNameEl = document.getElementById('userName');
+        const userRoleEl = document.getElementById('userRole');
+
+        // 页面加载时检查登录状态
+        document.addEventListener('DOMContentLoaded', () => {
+            if (accessToken && userInfo.name) {
+                showMainUI();
+            }
+            messageInput.focus();
+        });
+
+        function showMainUI() {
+            loginOverlay.classList.add('hidden');
+            userNameEl.textContent = userInfo.name || '-';
+            const roleMap = { admin: '管理员', teacher: '老师', student: '学生' };
+            userRoleEl.textContent = roleMap[userInfo.user_type] || userInfo.user_type;
+        }
+
+        function showLogin() {
+            loginOverlay.classList.remove('hidden');
+            loginUsername.value = '';
+            loginPassword.value = '';
+            loginError.textContent = '';
+        }
+
+        async function login() {
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value.trim();
+            if (!username || !password) {
+                loginError.textContent = '请输入账号和密码';
+                return;
+            }
+            await doLogin(username, password);
+        }
+
+        async function quickLogin(username, password) {
+            loginUsername.value = username;
+            loginPassword.value = password;
+            await doLogin(username, password);
+        }
+
+        async function doLogin(username, password) {
+            loginBtn.disabled = true;
+            loginError.textContent = '';
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const response = await fetch(AUTH_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    loginError.textContent = data.detail || '登录失败';
+                    return;
+                }
+
+                accessToken = data.access_token;
+                userInfo = {
+                    name: data.name,
+                    user_type: data.user_type
+                };
+
+                localStorage.setItem('ldy_token', accessToken);
+                localStorage.setItem('ldy_user', JSON.stringify(userInfo));
+
+                showMainUI();
+
+            } catch (err) {
+                loginError.textContent = '网络错误，请检查服务是否启动';
+                console.error('登录失败:', err);
+            } finally {
+                loginBtn.disabled = false;
+            }
+        }
+
+        function logout() {
+            accessToken = null;
+            userInfo = {};
+            sessionId = null;
+            localStorage.removeItem('ldy_token');
+            localStorage.removeItem('ldy_user');
+            chatContainer.innerHTML = `
+                <div class="welcome" id="welcomeMsg">
+                    <h2>🌸 林黛玉</h2>
+                    <p>这位客官安好。今儿个怎么有空来潇湘馆坐坐？<br>
+                    若是来问那些学生簿册的事，我倒是可以帮着翻翻。<br>
+                    若是想聊些诗词典故，我也略知一二。</p>
+                    <div class="examples">
+                        <div class="example-chip" onclick="sendExample('查一下学生 1001 的成绩')">查学生成绩</div>
+                        <div class="example-chip" onclick="sendExample('JAVA-01 班级就业情况如何？')">查班级就业</div>
+                        <div class="example-chip" onclick="sendExample('红楼梦里黛玉葬花是怎么回事？')">黛玉葬花</div>
+                        <div class="example-chip" onclick="sendExample('草船借箭的故事')">草船借箭</div>
+                        <div class="example-chip" onclick="sendExample('哪个班级就业薪资最高？')">薪资排行</div>
+                    </div>
+                </div>
+            `;
+            showLogin();
+        }
+
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendExample(text) {
+            messageInput.value = text;
+            sendMessage();
+        }
+
+        function appendUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `
+                <div class="msg-avatar">🧑</div>
+                <div class="msg-content">${escapeHtml(text)}</div>
+            `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function createAssistantMessage() {
+            const div = document.createElement('div');
+            div.className = 'message assistant';
+            div.innerHTML = `
+                <div class="msg-avatar">🌸</div>
+                <div class="msg-content" id="msg-${Date.now()}"></div>
+            `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+            return div.querySelector('.msg-content');
+        }
+
+        function appendThinking(content) {
+            if (!currentAssistantDiv) return;
+            const box = document.createElement('div');
+            box.className = 'thinking-box thinking';
+            box.innerHTML = `<span class="thinking-label">💭 思考中</span><div>${escapeHtml(content)}</div>`;
+            currentAssistantDiv.appendChild(box);
+            scrollToBottom();
+        }
+
+        function appendToolCall(name, args) {
+            if (!currentAssistantDiv) return;
+            const box = document.createElement('div');
+            box.className = 'thinking-box tool-call';
+            box.innerHTML = `<span class="thinking-label">🔧 调用工具</span><div><b>${escapeHtml(name)}</b>: ${escapeHtml(args)}</div>`;
+            currentAssistantDiv.appendChild(box);
+            scrollToBottom();
+        }
+
+        function appendToolResult(name, result) {
+            if (!currentAssistantDiv) return;
+            const box = document.createElement('div');
+            box.className = 'thinking-box tool-result';
+            const displayResult = result.length > 200 ? result.substring(0, 200) + '...' : result;
+            box.innerHTML = `<span class="thinking-label">✅ 查询结果</span><div>${escapeHtml(displayResult)}</div>`;
+            currentAssistantDiv.appendChild(box);
+            scrollToBottom();
+        }
+
+        function appendError(message) {
+            if (!currentAssistantDiv) {
+                currentAssistantDiv = createAssistantMessage();
+            }
+            const box = document.createElement('div');
+            box.className = 'thinking-box error';
+            box.innerHTML = `<span class="thinking-label">❌ 出错</span><div>${escapeHtml(message)}</div>`;
+            currentAssistantDiv.appendChild(box);
+            scrollToBottom();
+        }
+
+        function appendMessageChunk(text) {
+            if (!currentMessageContent) {
+                currentMessageContent = document.createElement('div');
+                currentMessageContent.className = 'message-text';
+                if (currentAssistantDiv) {
+                    currentAssistantDiv.appendChild(currentMessageContent);
+                }
+            }
+            currentMessageContent.innerHTML += escapeHtml(text);
+            scrollToBottom();
+        }
+
+        function removeCursor() {
+            const cursors = document.querySelectorAll('.cursor');
+            cursors.forEach(c => c.remove());
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function setLoading(loading) {
+            isStreaming = loading;
+            sendBtn.disabled = loading;
+            messageInput.disabled = loading;
+            if (loading) {
+                statusDot.className = 'status-dot connecting';
+                statusText.textContent = '思考中...';
+            } else {
+                statusDot.className = 'status-dot';
+                statusText.textContent = '在线';
+            }
+        }
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || isStreaming) return;
+
+            if (!accessToken) {
+                showLogin();
+                return;
+            }
+
+            const welcome = document.querySelector('.welcome');
+            if (welcome) welcome.remove();
+
+            appendUserMessage(text);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            currentAssistantDiv = createAssistantMessage();
+            currentMessageContent = null;
+            setLoading(true);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'Authorization': 'Bearer ' + accessToken
+                    },
+                    body: JSON.stringify({
+                        message: text,
+                        session_id: sessionId
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let lastEventType = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        if (trimmed.startsWith('event:')) {
+                            lastEventType = trimmed.substring(6).trim();
+                        } else if (trimmed.startsWith('data:')) {
+                            const jsonStr = trimmed.substring(5).trim();
+                            try {
+                                const data = JSON.parse(jsonStr);
+                                handleEvent(lastEventType, data);
+                            } catch (e) {
+                                console.warn('解析 SSE data 失败:', jsonStr);
+                            }
+                        }
+                    }
+                }
+
+                if (buffer.trim()) {
+                    const trimmed = buffer.trim();
+                    if (trimmed.startsWith('data:')) {
+                        const jsonStr = trimmed.substring(5).trim();
+                        try {
+                            const data = JSON.parse(jsonStr);
+                            handleEvent(lastEventType, data);
+                        } catch (e) {
+                            console.warn('解析 SSE data 失败:', jsonStr);
+                        }
+                    }
+                }
+
+            } catch (err) {
+                console.error('请求失败:', err);
+                appendError(err.message || '连接失败，请检查服务是否启动');
+            } finally {
+                removeCursor();
+                setLoading(false);
+                currentAssistantDiv = null;
+                currentMessageContent = null;
+            }
+        }
+
+        function handleEvent(event, data) {
+            switch (event) {
+                case 'thinking':
+                    appendThinking(data.content || '');
+                    break;
+                case 'tool_call':
+                    appendToolCall(data.name || '', data.arguments || '');
+                    break;
+                case 'tool_result':
+                    appendToolResult(data.name || '', data.result || '');
+                    break;
+                case 'message':
+                    appendMessageChunk(data.content || '');
+                    break;
+                case 'done':
+                    sessionId = data.session_id || sessionId;
+                    removeCursor();
+                    break;
+                case 'error':
+                    appendError(data.message || '未知错误');
+                    break;
+                default:
+                    console.log('未知事件:', event, data);
+            }
+        }
+
+        messageInput.focus();
+    </script>
+</body>
+</html>

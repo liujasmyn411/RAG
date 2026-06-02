@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>林黛玉 Agent · 学生管理系统</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     登录页（独立全屏）
+     ═══════════════════════════════════════════════════════ -->
+<div id="loginShell" class="login-page">
+  <div class="login-title">林黛玉 Agent</div>
+  <div class="login-subtitle">· 学生管理系统 ·</div>
+
+  <!-- 真实登录表单 -->
+  <div class="login-form-wrap">
+    <div class="login-form-title">账号登录</div>
+    <div class="form-group">
+      <input class="form-input login-input" id="loginUserId" placeholder="用户ID（学号/教师编号）" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <input class="form-input login-input" id="loginPassword" type="password" placeholder="密码" autocomplete="current-password">
+    </div>
+    <div id="loginError" style="color:#F44336;font-size:13px;min-height:20px;text-align:center;"></div>
+    <button class="btn btn-gold btn-lg" style="width:100%;" id="loginBtn" onclick="App.doRealLogin()">登 录</button>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:rgba(255,255,255,0.4);">
+      测试账号: XH_2024001 / TCH_001 / ADMIN_001 · 密码: 123456
+    </div>
+  </div>
+
+  <!-- Mock 快速演示 -->
+  <div style="margin-top:24px;color:rgba(255,255,255,0.35);font-size:12px;text-align:center;">— 或 Mock 模式快速演示 —</div>
+  <div class="login-cards">
+    <div class="login-card" onclick="App.doMockLogin('student')">
+      <div class="icon">🌸</div>
+      <div class="name">小红</div>
+      <div class="role">学生</div>
+      <div class="desc">与黛玉对话 · 查看成绩<br>四大名著检索 · 情感倾诉</div>
+    </div>
+    <div class="login-card" onclick="App.doMockLogin('teacher')">
+      <div class="icon">📋</div>
+      <div class="name">张老师</div>
+      <div class="role">辅导员</div>
+      <div class="desc">班级学生管理 · 心理画像<br>危机预警 · 班级统计</div>
+    </div>
+    <div class="login-card" onclick="App.doMockLogin('admin')">
+      <div class="icon">⚙️</div>
+      <div class="name">系统管理员</div>
+      <div class="role">管理员</div>
+      <div class="desc">账号管控 · 安全审计<br>知识库管理 · 系统配置</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     主应用布局
+     ═══════════════════════════════════════════════════════ -->
+<div class="app-layout" style="display:none;">
+
+  <!-- 顶部导航 -->
+  <header class="header">
+    <div class="header-left">
+      <span class="header-logo">🏯 黛玉 Agent<span>· 学生管理系统</span></span>
+    </div>
+    <div class="header-center">
+      <div class="role-switch">
+        <button data-role="student">🌸 学生</button>
+        <button data-role="teacher">📋 教师</button>
+        <button data-role="admin">⚙️ 管理员</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="mode-switch-wrap">
+        <span class="mode-label active" id="modeLabelMock">Mock</span>
+        <input type="checkbox" id="modeToggle">
+        <label class="mode-switch-slider" for="modeToggle"></label>
+        <span class="mode-label" id="modeLabelReal">API</span>
+      </div>
+      <div class="user-badge" id="userBadge">
+        <span class="user-avatar">?</span><span>未登录</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主体 -->
+  <div class="main-body">
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebarMenu">
+      <!-- JS动态渲染 -->
+    </aside>
+
+    <!-- 内容区 -->
+    <main class="content" id="mainContent">
+
+      <!-- ═════ 登录页（内嵌） ═════ -->
+      <div class="page" id="page-login">
+        <div class="login-page-inner">
+          <h2 style="font-family:var(--font-title);font-size:28px;color:var(--zhu-sha);">欢迎使用林黛玉 Agent 学生管理系统</h2>
+          <p style="color:var(--mo-light);">请从顶部导航栏选择角色进入系统</p>
+        </div>
+      </div>
+
+      <!-- ═════ 学生：黛玉对话 ═════ -->
+      <div class="page" id="page-studentChat">
+        <div class="page-title">🌸 林黛玉对话</div>
+        <div class="chat-container">
+          <div class="chat-main">
+            <div class="chat-panel">
+              <div class="chat-messages" id="chatMessages"></div>
+              <div class="chat-quick-actions">
+                <button class="btn btn-outline btn-sm" data-scenario="academic">📊 模拟成绩查询</button>
+                <button class="btn btn-outline btn-sm" data-scenario="chat">💬 模拟闲聊</button>
+                <button class="btn btn-outline btn-sm" data-scenario="crisis">🆘 模拟心理危机</button>
+                <button class="btn btn-outline btn-sm" data-scenario="b1">🛡️ 模拟B1敏感</button>
+                <button class="btn btn-outline btn-sm" data-scenario="b2">⚠️ 模拟B2粗鄙</button>
+              </div>
+              <div class="chat-input-area">
+                <input class="form-input" id="chatInput" placeholder="和林黛玉说说话吧...">
+                <button class="btn btn-gold" id="chatSendBtn">发送</button>
+              </div>
+            </div>
+          </div>
+          <div class="chat-panel" style="flex:4;">
+            <div id="safetyIndicator" class="safety-indicator safe">✅ 安全状态正常 — 黛玉角色正常运行中</div>
+            <div class="memory-panel" id="memoryPanel">
+              <div class="memory-block empty">暂无记忆上下文注入</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═════ 学生：成绩 ═════ -->
+      <div class="page" id="page-studentScores"></div>
+
+      <!-- ═════ 学生：就业 ═════ -->
+      <div class="page" id="page-studentEmployment"></div>
+
+      <!-- ═════ 学生：四大名著检索 ═════ -->
+      <div class="page" id="page-studentSearch"></div>
+
+      <!-- ═════ 教师：班级学生列表 ═════ -->
+      <div class="page" id="page-teacherStudents"></div>
+
+      <!-- ═════ 教师：学生画像 ═════ -->
+      <div class="page" id="page-teacherProfile"></div>
+
+      <!-- ═════ 教师：危机预警 ═════ -->
+      <div class="page" id="page-teacherAlerts"></div>
+
+      <!-- ═════ 教师：班级统计 ═════ -->
+      <div class="page" id="page-teacherStats"></div>
+
+      <!-- ═════ 管理员：账号管控 ═════ -->
+      <div class="page" id="page-adminAccounts"></div>
+
+      <!-- ═════ 管理员：安全日志 ═════ -->
+      <div class="page" id="page-adminSecurity"></div>
+
+      <!-- ═════ 管理员：知识库管理 ═════ -->
+      <div class="page" id="page-adminKnowledge"></div>
+
+      <!-- ═════ 管理员：系统配置 ═════ -->
+      <div class="page" id="page-adminConfig"></div>
+
+      <!-- ═════ CRUD：学生管理 ═════ -->
+      <div class="page" id="page-crudStudents"></div>
+
+      <!-- ═════ CRUD：成绩管理 ═════ -->
+      <div class="page" id="page-crudScores"></div>
+
+      <!-- ═════ CRUD：就业管理 ═════ -->
+      <div class="page" id="page-crudEmployment"></div>
+
+      <!-- ═════ CRUD：班级管理 ═════ -->
+      <div class="page" id="page-crudClasses"></div>
+
+      <!-- ═════ CRUD：教师管理 ═════ -->
+      <div class="page" id="page-crudTeachers"></div>
+
+      <!-- ═════ 架构可视化 ═════ -->
+      <div class="page" id="page-architecture"></div>
+
+      <!-- ═════ 统计分析 ═════ -->
+      <div class="page" id="page-statistics"></div>
+
+      <!-- ═════ NL 自然语言查询 ═════ -->
+      <div class="page" id="page-nlQuery">
+        <div class="page-title">🔍 自然语言数据查询</div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header">输入自然语言查询问题</div>
+          <div class="search-bar" style="margin:12px 0;">
+            <input class="form-input" id="nlQueryInput" placeholder="例如：有哪些女生的数学成绩超过85分？初二3班有多少男生？平均薪资最高的班级是哪个？" style="flex:1;font-size:15px;">
+            <button class="btn btn-gold" id="nlQueryBtn" style="font-size:15px;padding:10px 24px;">🔍 查询</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <span style="font-size:12px;color:var(--mo-lighter);">快捷示例:</span>
+            <button class="btn btn-sm btn-outline nl-example" data-q="有哪些女生的数学成绩超过85分？">数学>85分女生</button>
+            <button class="btn btn-sm btn-outline nl-example" data-q="初二3班有多少男生？">班级男生统计</button>
+            <button class="btn btn-sm btn-outline nl-example" data-q="平均薪资最高的班级是哪个？">薪资最高班级</button>
+            <button class="btn btn-sm btn-outline nl-example" data-q="查询所有超过30岁的学生">30岁以上学生</button>
+            <button class="btn btn-sm btn-outline nl-example" data-q="有哪些学生有两次以上不及格？">不及格>2次</button>
+          </div>
+        </div>
+
+        <!-- 结果显示区域 -->
+        <div id="nlQueryResult" style="display:none;">
+          <!-- SQL 展示 -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <span>📝 生成的 SQL</span>
+              <span id="nlQueryRowCount" style="font-size:13px;color:var(--mo-lighter);"></span>
+            </div>
+            <pre id="nlQuerySql" style="background:var(--bg-card);border:1px solid var(--border-light);border-radius:8px;padding:12px 16px;font-size:13px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;"></pre>
+            <div id="nlQueryError" style="display:none;color:var(--zhu-sha);padding:8px 16px;font-size:13px;"></div>
+          </div>
+
+          <!-- 结果展示 -->
+          <div class="card">
+            <div class="card-header">📊 查询结果</div>
+            <div id="nlQueryAnswer" style="padding:16px;line-height:1.8;font-size:14px;"></div>
+            <div id="nlQueryTable" style="padding:0 16px 16px;overflow-x:auto;"></div>
+          </div>
+        </div>
+
+        <!-- 初始提示 -->
+        <div id="nlQueryHint" class="card">
+          <div style="text-align:center;padding:40px;color:var(--mo-lighter);">
+            <div style="font-size:48px;margin-bottom:12px;">🔍</div>
+            <p style="font-size:16px;margin-bottom:8px;">用自然语言提问，AI 将自动生成 SQL 并查询数据库</p>
+            <p style="font-size:13px;">支持学生、成绩、就业、班级、教师等多表联合查询</p>
+            <p style="font-size:12px;color:var(--mo-light);margin-top:8px;">管理员可查全部数据 · 教师仅查本班 · 学生仅查自己</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     弹窗
+     ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modalTitle">标题</span>
+      <button class="modal-close" id="modalClose">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="document.getElementById('modalOverlay').classList.remove('show')">取消</button>
+      <button class="btn btn-primary" id="modalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     脚本
+     ═══════════════════════════════════════════════════════ -->
+<script src="js/mock-data.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

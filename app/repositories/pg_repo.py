@@ -88,6 +88,13 @@ class PgRepo:
         )
         return cold_id
 
+    async def mark_cold_reprocess(self, cold_id: str) -> None:
+        """标记 Cold 待重试 — L3-Hot Level 3 提取失败时调用"""
+        await self._session.execute(
+            text("UPDATE l3_cold SET need_reprocess = TRUE WHERE cold_id = :cid"),
+            {"cid": cold_id},
+        )
+
     async def get_l3_cold(self, cold_id: str) -> Optional[dict]:
         result = await self._session.execute(
             text("SELECT * FROM l3_cold WHERE cold_id = :cid"),

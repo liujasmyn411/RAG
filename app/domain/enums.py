@@ -176,3 +176,11 @@ class CrisisStatus(str, Enum):
     CONFIRMED = "confirmed"
     ESCALATED = "escalated"
     CLOSED = "closed"
+
+
+class BoundaryTrigger(str, Enum):
+    """Episode 边界触发信号"""
+    FIRST_EPISODE = "first_episode"         # 首次对话, 无历史
+    TOPIC_SHIFT = "topic_shift"             # 话题切换 (topic 改变)
+    SESSION_BOUNDARY = "session_boundary"   # 会话边界 (新会话)
+    TIME_GAP = "time_gap"                   # 时间间隔过长

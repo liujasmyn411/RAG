@@ -46,6 +46,8 @@ class MilvusRepo:
             "processed_for_l2": "false",
             "archived": False,
             "cold_ref": metadata.get("cold_ref", ""),
+            "prev_l3_id": metadata.get("prev_l3_id", ""),
+            "episode_id": metadata.get("episode_id", ""),
             "embedding_text": metadata.get("embedding_text", ""),
         }
         self._client.insert(
@@ -76,7 +78,8 @@ class MilvusRepo:
             output_fields=[
                 "l3_id", "student_id", "session_id", "timestamp",
                 "emotion_primary", "emotion_intensity", "topic", "subject",
-                "importance", "write_confidence", "cold_ref", "embedding_text",
+                "importance", "write_confidence", "cold_ref",
+                "prev_l3_id", "episode_id", "embedding_text",
             ],
         )
         return results[0] if results else []
@@ -88,6 +91,75 @@ class MilvusRepo:
             filter=f'l3_id == "{l3_id}"',
         )
         return results[0] if results else None
+
+    async def update_l3_episode(self, l3_id: str, episode_id: str) -> None:
+        """回写 L3 的 episode_id（post_processor 调用）"""
+        self._client.upsert(
+            collection_name=self._l3_collection,
+            data=[{"l3_id": l3_id, "episode_id": episode_id}],
+        )
+
+    async def get_last_l3(self, student_id: str) -> Optional[dict]:
+        """查询学生最近一条 L3（按 timestamp 降序）"""
+        results = self._client.query(
+            collection_name=self._l3_collection,
+            filter=f'student_id == "{student_id}" and archived == false',
+            output_fields=[
+                "l3_id", "student_id", "session_id", "timestamp",
+                "emotion_primary", "topic", "subject", "trigger",
+                "embedding_text", "episode_id",
+            ],
+            limit=1,
+            sort_by="timestamp DESC",
+        )
+        return results[0] if results else None
+
+    async def get_adjacent_l3(
+        self, l3_id: str, student_id: str
+    ) -> dict:
+        """按 timestamp 查询指定 L3 的前一条和后一条记录"""
+        target = await self.get_l3_by_id(l3_id)
+        if not target:
+            return {"prev": None, "next": None}
+
+        ts = target.get("timestamp", 0)
+
+        # 前一条: 最近的 timestamp < ts
+        prev_results = self._client.query(
+            collection_name=self._l3_collection,
+            filter=(
+                f'student_id == "{student_id}"'
+                f" and timestamp < {ts}"
+                f" and archived == false"
+            ),
+            output_fields=[
+                "l3_id", "timestamp", "emotion_primary", "topic",
+                "subject", "embedding_text",
+            ],
+            limit=1,
+            sort_by="timestamp DESC",
+        )
+
+        # 后一条: 最近的 timestamp > ts
+        next_results = self._client.query(
+            collection_name=self._l3_collection,
+            filter=(
+                f'student_id == "{student_id}"'
+                f" and timestamp > {ts}"
+                f" and archived == false"
+            ),
+            output_fields=[
+                "l3_id", "timestamp", "emotion_primary", "topic",
+                "subject", "embedding_text",
+            ],
+            limit=1,
+            sort_by="timestamp ASC",
+        )
+
+        return {
+            "prev": prev_results[0] if prev_results else None,
+            "next": next_results[0] if next_results else None,
+        }
 
     async def pull_unprocessed(
         self, student_id: str, limit: int = 30
@@ -103,7 +175,8 @@ class MilvusRepo:
             output_fields=[
                 "l3_id", "student_id", "session_id", "timestamp",
                 "emotion_primary", "emotion_intensity", "topic", "subject",
-                "importance", "write_confidence", "cold_ref", "embedding_text",
+                "importance", "write_confidence", "cold_ref",
+                "prev_l3_id", "episode_id", "embedding_text",
             ],
             limit=limit,
         )

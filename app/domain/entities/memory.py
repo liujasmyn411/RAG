@@ -35,6 +35,10 @@ class L3Snapshot:
     student_self_report: str = ""
     behavioral_signal: str = ""
 
+    # 叙事链 (Episodic Memory 演进)
+    prev_l3_id: Optional[str] = None   # 上一条 L3 快照 ID
+    episode_id: Optional[str] = None   # 所属 Episode ID
+
     # 记忆管理
     importance: float = 0.5
     write_confidence: float = 0.5
@@ -42,8 +46,14 @@ class L3Snapshot:
     archived: bool = False
     cold_ref: Optional[str] = None
 
-    def embedding_text(self) -> str:
-        return f"{self.topic.value} {self.emotion_primary.value} {self.trigger} {self.student_self_report} {self.behavioral_signal}"
+    def embedding_text(self, prev_context: str = "") -> str:
+        """生成用于向量化的文本。
+        prev_context: 上一条 L3 的 trigger/subject, 融入叙事上下文。
+        """
+        base = f"{self.topic.value} {self.emotion_primary.value} {self.trigger} {self.student_self_report} {self.behavioral_signal}"
+        if prev_context:
+            return f"[上文情境] {prev_context} [当前] {base}"
+        return base
 
 
 @dataclass

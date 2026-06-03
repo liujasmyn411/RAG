@@ -146,6 +146,59 @@ class PgRepo:
         return result.rowcount
 
     # ═══════════════════════════════════════════════════════════
+    # Episode: 情景记忆容器
+    # ═══════════════════════════════════════════════════════════
+
+    async def get_active_episode(self, student_id: str) -> Optional[dict]:
+        """获取学生当前活跃的 Episode（未关闭的最新一条）"""
+        result = await self._session.execute(
+            text(
+                """SELECT * FROM episodes
+                   WHERE student_id = :sid AND is_closed = FALSE
+                   ORDER BY started_at DESC LIMIT 1"""
+            ),
+            {"sid": student_id},
+        )
+        row = result.first()
+        return dict(row._mapping) if row else None
+
+    async def upsert_episode(
+        self,
+        episode_id: str,
+        student_id: str,
+        session_id: str,
+        topic: str,
+        boundary_trigger: str = "first_episode",
+    ) -> None:
+        """创建新 Episode 或增加已有 Episode 的 l3_count"""
+        await self._session.execute(
+            text(
+                """INSERT INTO episodes
+                   (episode_id, student_id, session_id, topic, started_at,
+                    boundary_trigger)
+                   VALUES (:eid, :sid, :sess, :topic, NOW(), :trigger)
+                   ON DUPLICATE KEY UPDATE l3_count = l3_count + 1"""
+            ),
+            {
+                "eid": episode_id,
+                "sid": student_id,
+                "sess": session_id,
+                "topic": topic,
+                "trigger": boundary_trigger,
+            },
+        )
+
+    async def close_episode(self, episode_id: str) -> None:
+        """关闭 Episode"""
+        await self._session.execute(
+            text(
+                """UPDATE episodes SET is_closed = TRUE, ended_at = NOW()
+                   WHERE episode_id = :eid"""
+            ),
+            {"eid": episode_id},
+        )
+
+    # ═══════════════════════════════════════════════════════════
     # 会话归档
     # ═══════════════════════════════════════════════════════════
 

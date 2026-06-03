@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS security_log;
 DROP TABLE IF EXISTS student_profile;
 DROP TABLE IF EXISTS session_archive;
 DROP TABLE IF EXISTS l2_draft_candidates;
+DROP TABLE IF EXISTS episodes;
 DROP TABLE IF EXISTS l3_cold;
 DROP TABLE IF EXISTS scores;
 DROP TABLE IF EXISTS attendance;
@@ -123,6 +124,22 @@ CREATE TABLE l3_cold (
 CREATE INDEX idx_l3_cold_student ON l3_cold(student_id);
 CREATE INDEX idx_l3_cold_created ON l3_cold(created_at);
 CREATE INDEX idx_l3_cold_status ON l3_cold(archive_status);
+
+-- Episode 情景记忆容器 (Quick Win 2: Episode 边界检测)
+CREATE TABLE episodes (
+    episode_id       VARCHAR(128) PRIMARY KEY,
+    student_id       VARCHAR(32) NOT NULL,
+    session_id       VARCHAR(64) NOT NULL,
+    topic            VARCHAR(32) NOT NULL,
+    started_at       TIMESTAMP NOT NULL,
+    ended_at         TIMESTAMP,
+    l3_count         INT DEFAULT 1,
+    is_closed        BOOLEAN DEFAULT FALSE,
+    boundary_trigger VARCHAR(32) DEFAULT 'first_episode',
+    created_at       TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_episodes_student ON episodes(student_id);
+CREATE INDEX idx_episodes_active ON episodes(is_closed, student_id);
 
 CREATE TABLE l2_draft_candidates (
     draft_id       VARCHAR(128) PRIMARY KEY,
@@ -568,6 +585,26 @@ def init_neo4j() -> None:
     print("Neo4j constraints + characters + relationships + scenes created.")
 
 
+def _migrate_l3_schema(collection) -> None:
+    """为已有 L3 Collection 补加 prev_l3_id / episode_id 字段（向前兼容）"""
+    from pymilvus import DataType
+
+    existing_fields = {f.name for f in collection.schema.fields}
+    new_fields = []
+
+    if "prev_l3_id" not in existing_fields:
+        new_fields.append(FieldSchema("prev_l3_id", DataType.VARCHAR, max_length=128))
+    if "episode_id" not in existing_fields:
+        new_fields.append(FieldSchema("episode_id", DataType.VARCHAR, max_length=128))
+
+    if new_fields:
+        print(f"Migrating L3 schema: adding fields {[f.name for f in new_fields]}")
+        collection.release()
+        for field in new_fields:
+            collection.add_field(field)
+        collection.load()
+
+
 def init_milvus() -> None:
     """创建 Milvus Collection"""
     from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connections
@@ -597,7 +634,9 @@ def init_milvus() -> None:
         FieldSchema("processed_for_l2", DataType.VARCHAR, max_length=16),
         FieldSchema("archived", DataType.BOOL),
         FieldSchema("cold_ref", DataType.VARCHAR, max_length=128),
-        FieldSchema("embedding_text", DataType.VARCHAR, max_length=1024),
+        FieldSchema("prev_l3_id", DataType.VARCHAR, max_length=128),
+        FieldSchema("episode_id", DataType.VARCHAR, max_length=128),
+        FieldSchema("embedding_text", DataType.VARCHAR, max_length=2048),
     ]
     l3_schema = CollectionSchema(l3_fields, "L3-Hot episodic snapshots")
     l3_collection = Collection(settings.MILVUS__L3_COLLECTION, l3_schema)
@@ -609,7 +648,18 @@ def init_milvus() -> None:
         "params": {"M": 16, "efConstruction": 200},
     }
     l3_collection.create_index("embedding", l3_index_params)
+    # timestamp 标量索引 — get_last_l3 / get_adjacent_l3 的 sort 查询需要
+    try:
+        l3_collection.create_index(
+            "timestamp",
+            {"index_type": "STL_SORT"},
+        )
+    except Exception:
+        pass  # 索引已存在或类型不支持时跳过
     l3_collection.load()
+
+    # ── Schema 迁移: 为已有 Collection 补加叙事链字段 ──
+    _migrate_l3_schema(l3_collection)
 
     # hlmm_scenes
     hlmm_fields = [

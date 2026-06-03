@@ -69,6 +69,18 @@ class MemoryService:
         l3_ranked = self._reranker.rerank(query, l3_raw) if l3_raw else []
         l3_final = self._filter_by_confidence(l3_ranked)[:5]
 
+        # Quick Win 4: 为 top-3 结果拉取叙事相邻记录
+        for l3 in l3_final[:3]:
+            try:
+                adjacent = await self._milvus.get_adjacent_l3(
+                    l3["l3_id"], student_id
+                )
+                l3["_prev"] = adjacent.get("prev")
+                l3["_next"] = adjacent.get("next")
+            except Exception:
+                l3["_prev"] = None
+                l3["_next"] = None
+
         # L0 Neo4j
         l0_scenes = await self._neo4j.get_scenes_by_emotion(emotion_val, limit=2)
 

@@ -26,11 +26,29 @@ async def context_builder_node(state: AgentState, persona_prompt: str) -> dict:
         l0 = retrieved.get("L0", [])
 
         if l3:
-            mem_lines = [
-                f"【记忆-{m.get('confidence_label','')}】"
-                f"{m.get('embedding_text','')}"
-                for m in l3[:3]
-            ]
+            mem_lines = []
+            for m in l3[:3]:
+                line = (
+                    f"【记忆-{m.get('confidence_label','')}】"
+                    f"{m.get('embedding_text','')}"
+                )
+                # Quick Win 4: 附加叙事上下文 (上文/下文)
+                prev_ctx = m.get("_prev")
+                next_ctx = m.get("_next")
+                narrative_hints = []
+                if prev_ctx:
+                    narrative_hints.append(
+                        f"上文: {prev_ctx.get('topic','')}"
+                        f" {prev_ctx.get('embedding_text','')[:60]}"
+                    )
+                if next_ctx:
+                    narrative_hints.append(
+                        f"下文: {next_ctx.get('topic','')}"
+                        f" {next_ctx.get('embedding_text','')[:60]}"
+                    )
+                if narrative_hints:
+                    line += " [" + " | ".join(narrative_hints) + "]"
+                mem_lines.append(line)
             context_parts.append("相关记忆:\n" + "\n".join(mem_lines))
         if l2:
             trait_lines = [

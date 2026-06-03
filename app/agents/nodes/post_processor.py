@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 from app.agents.state import AgentState
-from app.domain.enums import Intent, SafetyCategory
+from app.domain.enums import Intent, SafetyCategory, BoundaryTrigger
 from app.infrastructure.classifier import ClassifierService
 from app.infrastructure.embedding import get_embedding_service
 from app.repositories.pg_repo import PgRepo
@@ -90,6 +90,19 @@ async def post_processor_node(
             ],
         )
 
+        # ── 叙事链: 查询上一条 L3 + Episode 边界检测 ──
+        prev_l3 = await milvus_repo.get_last_l3(student_id)
+        prev_l3_id = prev_l3["l3_id"] if prev_l3 else None
+        prev_context = (
+            f"{prev_l3.get('topic','')} {prev_l3.get('subject','')}"
+            if prev_l3 else ""
+        )
+
+        # Episode 边界检测 (纯规则, 不调 LLM)
+        current_topic = ""  # 等待分类器确定
+        episode_id = None
+        boundary_trigger = BoundaryTrigger.FIRST_EPISODE
+
         # ── 提取决策: 第一级 关键词正则 ──
         is_meaningful, is_crisis = _keyword_filter(user_text)
 
@@ -101,15 +114,49 @@ async def post_processor_node(
             )
 
         if is_meaningful:
-            # ── L3-Hot 写入 ──
-            hot_written = await _write_l3_hot(
+            # ── L3-Hot 写入 (含叙事链字段) ──
+            hot_result = await _write_l3_hot(
                 pg_repo, milvus_repo,
                 student_id, session_id, cold_id,
                 user_text, is_crisis,
+                prev_l3_id=prev_l3_id,
+                prev_l3=prev_l3,
+                prev_context=prev_context,
             )
+            hot_written = hot_result.get("written", False)
+            current_topic = hot_result.get("topic", "")
             if not hot_written:
-                # Level 3 提取失败 → 标记 Cold 待重试
                 await pg_repo.mark_cold_reprocess(cold_id)
+
+            # Episode 边界判定 + 写入
+            if hot_written and current_topic:
+                if prev_l3 and prev_l3.get("topic") == current_topic:
+                    # 同一话题 → 复用 episode_id
+                    episode_id = prev_l3.get("episode_id")
+                    if episode_id:
+                        boundary_trigger = None  # 不创建, 只 update count
+                        await pg_repo.upsert_episode(
+                            episode_id, student_id, session_id,
+                            current_topic, boundary_trigger or "",
+                        )
+                if not episode_id:
+                    # 新话题 → 创建新 Episode
+                    episode_id = (
+                        f"ep_{student_id}_{current_topic}_"
+                        f"{datetime.now().strftime('%Y%m%d%H%M')}"
+                    )
+                    if prev_l3:
+                        boundary_trigger = BoundaryTrigger.TOPIC_SHIFT
+                    await pg_repo.upsert_episode(
+                        episode_id, student_id, session_id,
+                        current_topic, boundary_trigger.value,
+                    )
+
+                # 回写 episode_id 到 L3-Hot
+                if episode_id:
+                    await milvus_repo.update_l3_episode(
+                        hot_result.get("l3_id", ""), episode_id
+                    )
 
         needs_reflection = is_crisis or False
         return {"needs_memory_update": needs_reflection}
@@ -163,10 +210,13 @@ async def _write_l3_hot(
     pg_repo, milvus_repo,
     student_id, session_id, cold_id,
     user_text, is_crisis,
-) -> bool:
+    prev_l3_id: str | None = None,
+    prev_l3: dict | None = None,
+    prev_context: str = "",
+) -> dict:
     """写入 L3-Hot Milvus — 按提取质量分级赋 write_confidence
 
-    Returns: True=入库成功, False=Level3降级(不入库)
+    Returns: {"written": bool, "topic": str, "l3_id": str}
     """
     classifier = ClassifierService()
     quality_level, emotions = await classifier.classify_with_fallback(user_text)
@@ -179,14 +229,18 @@ async def _write_l3_hot(
     elif quality_level == 2:
         write_conf = 0.30  # 极简: 仅 topic, 低分入库
     else:
-        return False  # Level 3: 完全失败, 不入 Milvus
+        return {"written": False, "topic": "", "l3_id": ""}  # Level 3: 不入库
 
+    topic = emotions.get("topic", "daily_chat")
     emb_service = get_embedding_service()
-    embedding_text = (
-        f"{emotions.get('topic','')} "
-        f"{emotions.get('emotion_primary','')} "
-        f"{emotions.get('key_concern','')}"
-    )
+
+    # embedding_text 融入上一条 L3 的上下文 (Quick Win 3)
+    base = f"{topic} {emotions.get('emotion_primary','')} {emotions.get('key_concern','')}"
+    if prev_context.strip():
+        embedding_text = f"[上文情境] {prev_context.strip()} [当前] {base}"
+    else:
+        embedding_text = base
+
     vec = emb_service.encode(embedding_text)
 
     l3_id = f"l3_{datetime.now().strftime('%Y%m%d')}_{student_id}_{int(time.time())}"
@@ -197,10 +251,13 @@ async def _write_l3_hot(
         "timestamp": int(time.time()),
         "emotion_primary": emotions.get("emotion_primary", "calm"),
         "emotion_intensity": emotions.get("intensity", 0.5),
-        "topic": emotions.get("topic", "daily_chat"),
+        "topic": topic,
+        "subject": emotions.get("key_concern", ""),
         "importance": 0.5 if not is_crisis else 1.0,
         "write_confidence": write_conf,
         "cold_ref": cold_id,
+        "prev_l3_id": prev_l3_id or "",
+        "episode_id": "",  # 先占位, post_processor_node 回写
         "embedding_text": embedding_text,
     })
-    return True
+    return {"written": True, "topic": topic, "l3_id": l3_id}

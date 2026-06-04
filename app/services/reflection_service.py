@@ -7,10 +7,12 @@ from typing import Optional
 
 from app.domain.enums import (
     ConflictType,
-    CognitionDimension,
-    RelationType,
     StreakDirection,
     SourceType,
+    get_dimension_target_type,
+    get_dimension_label,
+    get_dimension_keys,
+    build_dimensions_prompt,
 )
 from app.domain.entities.memory import L2Cognition
 from app.infrastructure.llm_client import get_llm_client
@@ -19,33 +21,31 @@ from app.repositories.neo4j_repo import Neo4jRepo
 from app.repositories.milvus_repo import MilvusRepo
 
 
-REFLECTION_PROMPT = """你是一个学生心理分析助手。从多条对话摘要中提炼学生的认知特征。
+REFLECTION_PROMPT = """你是一个环评专家认知提炼助手。从多条案例记录中提炼专家的经验性认知。
 
-维度:
-1. 学科能力: 偏科情况、学习趋势、薄弱环节
-2. 情绪模式: 情绪基线、触发因素、波动特征、焦虑程度
-3. 社交模式: 同伴关系、课堂参与度、社交偏好
-4. 态度偏好: 对各学科/学校/老师的态度
+可用的认知维度 (从注册表动态注入):
+{dimensions_prompt}
 
 规则:
-· 至少2条L3指向同一方向才提炼
-· 不编造对话中没有的内容
-· 标注"直接陈述"还是"推断"
-· 如果多条L3之间有矛盾, 在输出中标注
+· 从以上维度中选择最匹配的一个, 填入 relation_type 字段
+· 至少2条案例记录指向同一方向才提炼
+· 不编造案例中没有的内容
+· 标注"案例直接体现"还是"专家推断"
+· 如果多条案例记录之间有矛盾, 在输出中标注
 · 输出严格JSON, 无其他文字
 
 输出格式:
-{"cognitions": [{
-  "dimension": "学科能力",
-  "target": "数学",
-  "relation_type": "偏科",
-  "content": "...",
+{{"cognitions": [{{
+  "relation_type": "risk_pattern" | "compliance_pattern" | "impact_pattern" | "experience_pattern",
+  "target": "VOC" | "化工项目" | "居民区投诉" | ...,
+  "content": "涉及VOC排放且邻近居民区的项目具有较高投诉风险 — 对认知的完整描述",
   "trend": "波动"|"下降"|"上升"|"平稳"|null,
   "intensity": 0.75|null,
+  "valence": "positive"|"negative"|"neutral"|null,
   "source_type": "reflection",
   "evidence_ids": ["l3_001","l3_002"],
-  "contradiction_noted": "同时存在代数困难和几何进步"|null
-}]}"""
+  "contradiction_noted": "案例1显示VOC风险低但案例2风险高"|null
+}}]}}"""
 
 
 class ReflectionService:
@@ -156,17 +156,21 @@ class ReflectionService:
         for i, l3 in enumerate(items):
             summaries.append(
                 f"[{i+1}] {l3.get('timestamp','')} | "
-                f"{l3.get('topic','')} | {l3.get('emotion_primary','')},"
-                f"强度{l3.get('emotion_intensity',0.5)} | "
-                f"触发:{l3.get('subject','') or '无'} | "
+                f"{l3.get('topic','')} | 风险:{l3.get('risk_level','')},"
+                f"置信度{l3.get('risk_confidence',0.5)} | "
+                f"污染物:{l3.get('pollutant','') or '无'} | "
+                f"敏感目标:{l3.get('sensitive_target','') or '无'} | "
                 f"embedding_text: {l3.get('embedding_text','')}"
             )
 
-        user_prompt = f"学生: {student_id}\n\n近期对话摘要:\n" + "\n".join(summaries)
+        user_prompt = f"项目主体: {student_id}\n\n近期案例记录:\n" + "\n".join(summaries)
 
         try:
+            system_prompt = REFLECTION_PROMPT.format(
+                dimensions_prompt=build_dimensions_prompt()
+            )
             result = await self._llm.chat_json([
-                {"role": "system", "content": REFLECTION_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ])
             return result.get("cognitions", [])
@@ -181,21 +185,22 @@ class ReflectionService:
         self, candidate: dict, existing: list[dict]
     ) -> tuple[ConflictType, dict | None]:
         """LLM 六分类语义比对, 返回 (类型, 旧边或None)"""
-        dim = candidate.get("dimension", "")
+        relation_type = candidate.get("relation_type", "")
         target = candidate.get("target", "")
         new_content = candidate.get("content", "")
 
         for edge in existing:
-            if edge.get("relation_type") == self._map_relation(dim):
+            if edge.get("relation_type") == relation_type:
                 if edge.get("target_name") == target:
-                    old_content = edge.get("level", "") or edge.get("pattern", "")
+                    old_content = edge.get("content", "")
                     if not old_content:
                         return ConflictType.TYPE_6_OVERLAP, edge
 
                     # LLM 语义比对六分类
                     try:
+                        dim_label = get_dimension_label(relation_type)
                         prompt = CONFLICT_CLASSIFY_PROMPT.format(
-                            dimension=dim,
+                            dimension=dim_label,
                             old_content=old_content,
                             new_content=new_content,
                         )
@@ -209,26 +214,17 @@ class ReflectionService:
 
         return ConflictType.TYPE_6_OVERLAP, None  # 无匹配 → 新认知
 
-    def _map_relation(self, dimension: str) -> str:
-        mapping = {
-            "学科能力": "偏科",
-            "情绪模式": "情绪倾向",
-            "社交模式": "社交模式",
-            "态度偏好": "态度偏好",
-        }
-        return mapping.get(dimension, dimension)
-
-    CONFLICT_CLASSIFY_PROMPT = """判断两条关于学生{dimension}的认知之间的关系类型。
+    CONFLICT_CLASSIFY_PROMPT = """判断两条关于{dimension}的认知之间的关系类型。
 
 旧认知: {old_content}
 新认知: {new_content}
 
 分类:
-1. type_1_oppose (直接对立): 同一维度极性相反, 不能同时为真。如讨厌vs喜欢。
-2. type_2_supersede (时间覆盖): 新信息是旧信息的更新版本, 旧信息已过时。如成绩变化。
-3. type_3_refine (范围细化): 新信息加了条件限定, 缩小旧信息范围。如"偏弱"→"代数弱但几何好"。
-4. type_4_source_conflict (来源冲突): 系统数据vs自述不一致。
-5. type_5_affective (情绪波动): 情绪类属性在短时间内(<7天)极性交替。
+1. type_1_oppose (直接对立): 同一维度结论相反, 不能同时为真。如VOC风险低vs高。
+2. type_2_supersede (时间覆盖): 新信息是旧信息的更新版本, 旧信息已过时。如排放标准更新。
+3. type_3_refine (范围细化): 新信息加了条件限定, 缩小旧信息范围。如"化工项目有地下水风险"→"精细化工项目地下水风险更高"。
+4. type_4_source_conflict (来源冲突): 企业自报数据vs监测数据不一致。
+5. type_5_affective (风险波动): 同一项目/污染物在不同阶段风险等级交替变化。
 6. type_6_overlap (语义重叠): 两条说的是同一件事, 表述不同。
 
 输出严格 JSON (仅此):
@@ -242,8 +238,8 @@ class ReflectionService:
         self, student_id: str, candidate: dict
     ) -> None:
         now = datetime.now()
-        relation = self._map_relation(candidate.get("dimension", ""))
-        target_label = "Subject" if relation in ("偏科", "态度偏好") else "Trait"
+        relation = candidate.get("relation_type", "")
+        target_label = get_dimension_target_type(relation)
         props = {
             "confidence": 0.70,
             "C_peak": 0.70,
@@ -252,16 +248,20 @@ class ReflectionService:
             "verified_count": 1,
             "streak_count": 1,
             "streak_direction": "support",
+            "content": candidate.get("content", ""),
             "created_at": now,
             "updated_at": now,
         }
-        if relation == "偏科":
-            props["level"] = candidate.get("content", "")
-            props["trend"] = candidate.get("trend", "")
-        elif relation == "情绪倾向":
-            props["intensity"] = candidate.get("intensity", 0.5)
-        elif relation == "态度偏好":
-            props["valence"] = candidate.get("valence", "neutral")
+        # 可选: 维度通用属性 (仅非空时写入)
+        trend = candidate.get("trend")
+        if trend:
+            props["trend"] = trend
+        intensity = candidate.get("intensity")
+        if intensity is not None:
+            props["intensity"] = float(intensity)
+        valence = candidate.get("valence")
+        if valence:
+            props["valence"] = valence
 
         await self._neo4j.create_l2_edge(
             student_id, relation, candidate["target"], target_label, props
@@ -271,8 +271,7 @@ class ReflectionService:
         self, student_id: str, candidate: dict, existing: list[dict]
     ) -> None:
         """类型一: 三因子贝叶斯对抗更新"""
-        dim = candidate.get("dimension", "")
-        relation = self._map_relation(dim)
+        relation = candidate.get("relation_type", "")
         target = candidate.get("target", "")
 
         edge = next(
@@ -320,9 +319,6 @@ class ReflectionService:
         self, student_id: str, candidate: dict
     ) -> None:
         """类型二: 时间覆盖"""
-        dim = candidate.get("dimension", "")
-        relation = self._map_relation(dim)
-        # 归档旧边: 这里用更细 content 更新当前边
         await self._create_new_edge(student_id, candidate)
 
     async def _handle_refine(
@@ -335,8 +331,7 @@ class ReflectionService:
         self, student_id: str, candidate: dict
     ) -> None:
         """类型六: 语义重叠, 不创建新边, 仅提升置信度"""
-        dim = candidate.get("dimension", "")
-        relation = self._map_relation(dim)
+        relation = candidate.get("relation_type", "")
         target = candidate.get("target", "")
         await self._neo4j.update_l2_edge(
             student_id, relation, target,

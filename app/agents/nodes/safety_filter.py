@@ -29,7 +29,7 @@ async def safety_filter_node(state: AgentState, safety_service: SafetyService) -
                 "escalation": event.escalation.value,
                 "response_template": _SAFETY_RESPONSES.get(event.category.value, ""),
             },
-            "current_intent": "psych_crisis",
+            "current_intent": "risk_assessment",
             "needs_memory_update": False,
         }
 
@@ -41,7 +41,7 @@ async def safety_filter_node(state: AgentState, safety_service: SafetyService) -
                 "escalation": event.escalation.value,
                 "response_template": _SAFETY_RESPONSES.get(event.category.value, ""),
             },
-            "current_intent": "daiyu_chat",
+            "current_intent": "eia_consultation",
             "needs_memory_update": False,
         }
 
@@ -57,7 +57,7 @@ async def safety_filter_node(state: AgentState, safety_service: SafetyService) -
 
 
 _SAFETY_RESPONSES = {
-    "psych_crisis": "我听到了你的话。请稍等, 有人会立刻联系你。你并不孤单。",
+    "risk_assessment": "我听到了你的话。请稍等, 有人会立刻联系你。你并不孤单。",
     "political": "这个问题我无法回答。请遵守使用规范。",
     "vulgar": "说话仔细些, 仔细我告诉太太去。",
     "injection": "",

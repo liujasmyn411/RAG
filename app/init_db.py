@@ -625,10 +625,12 @@ def init_milvus() -> None:
         FieldSchema("embedding", DataType.FLOAT_VECTOR, dim=dim),
         FieldSchema("session_id", DataType.VARCHAR, max_length=64),
         FieldSchema("timestamp", DataType.INT64),
-        FieldSchema("emotion_primary", DataType.VARCHAR, max_length=32),
-        FieldSchema("emotion_intensity", DataType.FLOAT),
-        FieldSchema("topic", DataType.VARCHAR, max_length=32),
-        FieldSchema("subject", DataType.VARCHAR, max_length=32),
+        FieldSchema("risk_level", DataType.VARCHAR, max_length=32),
+        FieldSchema("risk_confidence", DataType.FLOAT),
+        FieldSchema("topic", DataType.VARCHAR, max_length=64),
+        FieldSchema("pollutant", DataType.VARCHAR, max_length=64),
+        FieldSchema("sensitive_target", DataType.VARCHAR, max_length=64),
+        FieldSchema("risk_event", DataType.VARCHAR, max_length=512),
         FieldSchema("importance", DataType.FLOAT),
         FieldSchema("write_confidence", DataType.FLOAT),
         FieldSchema("processed_for_l2", DataType.VARCHAR, max_length=16),
@@ -638,7 +640,7 @@ def init_milvus() -> None:
         FieldSchema("episode_id", DataType.VARCHAR, max_length=128),
         FieldSchema("embedding_text", DataType.VARCHAR, max_length=2048),
     ]
-    l3_schema = CollectionSchema(l3_fields, "L3-Hot episodic snapshots")
+    l3_schema = CollectionSchema(l3_fields, "L3-Hot EIA case snapshots")
     l3_collection = Collection(settings.MILVUS__L3_COLLECTION, l3_schema)
 
     # HNSW index

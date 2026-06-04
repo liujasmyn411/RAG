@@ -10,7 +10,7 @@ async def response_generator_node(
     persona_prompt: str,
 ) -> dict:
     """LLM 生成回复, 按 intent 选不同策略"""
-    intent_raw = state.get("current_intent", Intent.DAIYU_CHAT.value)
+    intent_raw = state.get("current_intent", Intent.EIA_CONSULTATION.value)
     intent = Intent(intent_raw)
     messages = state["messages"]
     safety = state.get("safety") or {}
@@ -26,7 +26,7 @@ async def response_generator_node(
     # 构建 messages 列表
     msgs = [{"role": "system", "content": persona_prompt}]
 
-    if intent == Intent.PSYCH_CRISIS:
+    if intent == Intent.RISK_ASSESSMENT:
         # 危机: 使用标准干预话术 System Prompt
         msgs[0] = {"role": "system", "content": _CRISIS_PROMPT}
 

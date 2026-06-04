@@ -1,6 +1,6 @@
 """记忆检索服务 — 统一检索入口, 按 intent 调度不同检索策略"""
 
-from app.domain.enums import Intent, EmotionPrimary
+from app.domain.enums import Intent
 from app.infrastructure.classifier import ClassifierService
 from app.infrastructure.embedding import get_embedding_service
 from app.infrastructure.reranker import get_reranker_service
@@ -32,38 +32,36 @@ class MemoryService:
         student_id: str,
     ) -> dict:
         """按 intent 分发检索策略"""
-        if intent == Intent.DAIYU_CHAT:
-            return await self._retrieve_daiyu_chat(query, student_id)
-        elif intent == Intent.ACADEMIC_QUERY:
-            return await self._retrieve_academic(query, student_id)
-        elif intent == Intent.PSYCH_CRISIS:
-            return await self._retrieve_psych_crisis(student_id)
-        elif intent == Intent.LITERARY_QUERY:
-            return await self._retrieve_literary(query)
+        if intent == Intent.EIA_CONSULTATION:
+            return await self._retrieve_eia_consultation(query, student_id)
+        elif intent == Intent.RISK_ASSESSMENT:
+            return await self._retrieve_risk_assessment(student_id)
+        elif intent == Intent.CASE_RETRIEVAL:
+            return await self._retrieve_case(query)
         return {}
 
-    # ── daiyu_chat: 三阶段混合编排 ──
+    # ── eia_consultation: 三阶段混合编排 ──
 
-    async def _retrieve_daiyu_chat(
+    async def _retrieve_eia_consultation(
         self, query: str, student_id: str
     ) -> dict:
         # Phase 1: 快速提取
         l2_tags = await self._neo4j.get_student_traits(student_id)
-        emotions = await self._classifier.classify(query)
+        case_info = await self._classifier.classify(query)
 
         # 增强 query
         enhanced = (
-            f"{query}。该生特征: {l2_tags}。情绪: {emotions}"
+            f"{query}。已有专家认知: {l2_tags}。风险信息: {case_info}"
         )
 
         # Phase 2: 深度检索
         query_vec = self._embed.encode(enhanced)
-        emotion_val = emotions.get("emotion_primary", "")
+        risk_val = case_info.get("risk_level", "")
 
-        # L3 Milvus
+        # L3 Milvus 案例检索
         l3_raw = await self._milvus.search_l3(
             student_id, query_vec,
-            emotion_filter=[emotion_val] if emotion_val else None,
+            risk_filter=[risk_val] if risk_val else None,
             top_k=20,
         )
         l3_ranked = self._reranker.rerank(query, l3_raw) if l3_raw else []
@@ -81,44 +79,21 @@ class MemoryService:
                 l3["_prev"] = None
                 l3["_next"] = None
 
-        # L0 Neo4j
-        l0_scenes = await self._neo4j.get_scenes_by_emotion(emotion_val, limit=2)
-
-        # Phase 3: 按 token 预算合并, 附加四大名著知识
-        # 四大名著 RAG (轻量, top-3)
-        lk_raw = await self._milvus.search_fourpaper(query_vec, top_k=5)
-        lk_ranked = self._reranker.rerank(query, lk_raw) if lk_raw else []
+        # L0 Neo4j 法规/实体图谱
+        l0_entities = await self._neo4j.get_scenes_by_emotion(risk_val, limit=2)
 
         return {
             "L3": l3_final,
             "L2": l2_tags,
-            "L0": l0_scenes,
-            "L-K": lk_ranked[:3] if lk_ranked else [],
+            "L0": l0_entities,
         }
 
-    # ── academic_query: L1 + 可选 L2 ──
+    # ── risk_assessment: L2 风险认知 + L3-Cold 回源 ──
 
-    async def _retrieve_academic(
-        self, query: str, student_id: str
-    ) -> dict:
-        # L1: 从 PG 获取成绩/考勤
-        scores = await self._pg.get_student_scores(student_id)
-        attendance = await self._pg.get_student_attendance(student_id)
-
-        # L2: 学科认知 (可选, 辅助解释成绩)
+    async def _retrieve_risk_assessment(self, student_id: str) -> dict:
         traits = await self._neo4j.get_student_traits(student_id)
 
-        return {
-            "L1": {"scores": scores, "attendance": attendance},
-            "L2": traits,
-        }
-
-    # ── psych_crisis: L2 危机 + L3-Cold 回源 ──
-
-    async def _retrieve_psych_crisis(self, student_id: str) -> dict:
-        traits = await self._neo4j.get_student_traits(student_id)
-
-        # 危机相关 L3-Cold 回源
+        # 风险相关 L3-Cold 回源
         unprocessed = await self._milvus.pull_unprocessed(student_id, limit=10)
         cold_refs = [l.get("cold_ref") for l in unprocessed if l.get("cold_ref")]
         cold_data = []
@@ -132,29 +107,25 @@ class MemoryService:
             "L3-Cold": cold_data,
         }
 
-    # ── literary_query: 四大名著 RAG 检索 ──
+    # ── case_retrieval: 案例检索 ──
 
-    async def _retrieve_literary(self, query: str) -> dict:
-        """检索四大名著知识库"""
+    async def _retrieve_case(self, query: str) -> dict:
+        """检索案例知识库"""
         query_vec = self._embed.encode(query)
 
-        raw = await self._milvus.search_fourpaper(query_vec, top_k=10)
+        raw = await self._milvus.search_l3(
+            "", query_vec,
+            risk_filter=None,
+            top_k=10,
+        )
         if not raw:
-            return {"L-K": []}
+            return {"L3": []}
 
-        # Rerank
         ranked = self._reranker.rerank(query, raw) if raw else []
         top = ranked[:5] if ranked else raw[:5]
 
-        # 按书名分组
-        by_book = {}
-        for r in top:
-            book = r.get("book_name", "未知")
-            by_book.setdefault(book, []).append(r)
-
         return {
-            "L-K": top,
-            "L-K_by_book": by_book,
+            "L3": top,
         }
 
     # ── 辅助 ──

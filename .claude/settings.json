@@ -6,7 +6,10 @@
       "Bash(python -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
       "Bash(curl -s http://localhost:8000/docs)",
       "Bash(curl -s http://localhost:8000/openapi.json)",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); paths=[p for p in d.get\\('paths',{}\\) if 'nl' in p]; print\\('NL paths:', paths\\)\")"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); paths=[p for p in d.get\\('paths',{}\\) if 'nl' in p]; print\\('NL paths:', paths\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(cd /d d:\\\\third_item)",
+      "Bash(mysql -h 127.0.0.1 -P 3307 -u student -pstudent123 -e \"SELECT VERSION\\(\\);\")"
     ]
   }
 }

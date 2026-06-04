@@ -5,11 +5,9 @@ from datetime import datetime
 from typing import Optional
 
 from app.domain.enums import (
-    EmotionPrimary,
-    Topic,
-    CognitionDimension,
+    CaseRiskLevel,
+    EIATopic,
     CognitionStatus,
-    RelationType,
     SourceType,
     StreakDirection,
     CloseReason,
@@ -19,21 +17,20 @@ from app.domain.enums import (
 
 @dataclass
 class L3Snapshot:
-    """L3-Hot 情景快照实体"""
+    """L3-Hot 案例情景快照实体 — EIA 案例记忆"""
     l3_id: str
     student_id: str
     session_id: str
     timestamp: datetime
 
-    # 核心语义
-    emotion_primary: EmotionPrimary
-    emotion_secondary: Optional[EmotionPrimary] = None
-    emotion_intensity: float = 0.5
-    topic: Topic = Topic.DAILY_CHAT
-    subject: Optional[str] = None
-    trigger: str = ""
-    student_self_report: str = ""
-    behavioral_signal: str = ""
+    # 核心语义 — EIA 案例字段
+    risk_level: CaseRiskLevel = CaseRiskLevel.MEDIUM
+    risk_confidence: float = 0.5
+    topic: EIATopic = EIATopic.GENERAL_CONSULTATION
+    pollutant: Optional[str] = None          # 污染物 (VOC/COD/重金属等)
+    risk_event: str = ""                      # 风险事件描述
+    sensitive_target: str = ""                # 环境敏感受体 (居民区/学校/水源地等)
+    project_description: str = ""             # 项目概述
 
     # 叙事链 (Episodic Memory 演进)
     prev_l3_id: Optional[str] = None   # 上一条 L3 快照 ID
@@ -48,9 +45,9 @@ class L3Snapshot:
 
     def embedding_text(self, prev_context: str = "") -> str:
         """生成用于向量化的文本。
-        prev_context: 上一条 L3 的 trigger/subject, 融入叙事上下文。
+        prev_context: 上一条 L3 的 risk_event/pollutant, 融入叙事上下文。
         """
-        base = f"{self.topic.value} {self.emotion_primary.value} {self.trigger} {self.student_self_report} {self.behavioral_signal}"
+        base = f"{self.topic.value} {self.risk_level.value} {self.risk_event} {self.pollutant or ''} {self.sensitive_target} {self.project_description}"
         if prev_context:
             return f"[上文情境] {prev_context} [当前] {base}"
         return base
@@ -58,11 +55,14 @@ class L3Snapshot:
 
 @dataclass
 class L2Cognition:
-    """L2 语义认知实体 (对应 Neo4j 中的关系边)"""
+    """L2 语义认知实体 (对应 Neo4j 中的关系边)
+
+    relation_type 即维度 key (如 "ability_pattern"),
+    同时也是 Neo4j 边类型。通过 COGNITION_DIMENSIONS 注册表解析显示名。
+    """
     cognition_id: Optional[str] = None
     student_id: str = ""
-    dimension: CognitionDimension = CognitionDimension.SUBJECT_ABILITY
-    relation_type: RelationType = RelationType.WEAK_SUBJECT
+    relation_type: str = ""               # 维度 key → Neo4j 边类型
     target_name: str = ""
     content: str = ""
 

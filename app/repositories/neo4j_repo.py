@@ -5,7 +5,6 @@ from typing import Optional
 
 from neo4j import AsyncGraphDatabase, AsyncManagedTransaction
 
-from app.domain.enums import EmotionPrimary, RelationType, CognitionDimension
 from app.domain.entities.memory import L2Cognition
 from app.infrastructure.config import get_settings
 
@@ -70,8 +69,7 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (s:Student {student_id: $sid})-[r]-(t)
-                WHERE type(r) IN ['偏科', '情绪倾向', '态度偏好', '社交模式']
+                MATCH (s:Entity {entity_id: $sid})-[r]-(t)
                 RETURN type(r) AS relation_type, t.name AS target_name,
                        r.confidence AS confidence, r.C_peak AS C_peak,
                        r.C_trough AS C_trough,
@@ -79,9 +77,8 @@ class Neo4jRepo:
                        r.streak_direction AS streak_direction,
                        r.last_oppose_time AS last_oppose_time,
                        r.source AS source, r.verified_count AS verified_count,
-                       r.level AS level, r.trend AS trend,
-                       r.intensity AS intensity, r.valence AS valence,
-                       r.pattern AS pattern
+                       r.content AS content, r.trend AS trend,
+                       r.intensity AS intensity, r.valence AS valence
                 ORDER BY r.confidence DESC
                 """,
                 sid=student_id,
@@ -101,7 +98,7 @@ class Neo4jRepo:
                        r.C_trough AS C_trough, r.streak_count AS streak_count,
                        r.streak_direction AS streak_direction,
                        r.last_oppose_time AS last_oppose_time,
-                       r.level AS level, r.trend AS trend
+                       r.content AS content, r.trend AS trend
                 """,
                 sid=student_id,
                 target=target_name,
@@ -208,9 +205,8 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (s:Student {student_id: $sid})-[r]-(t)
-                WHERE type(r) IN ['偏科','情绪倾向','态度偏好','社交模式']
-                  AND r.conflict_status = 'pending_verification'
+                MATCH (s:Entity {entity_id: $sid})-[r]-(t)
+                WHERE r.conflict_status = 'pending_verification'
                   AND r.pending_since IS NOT NULL
                   AND duration.inDays(r.pending_since, datetime()).days > $days
                 RETURN type(r) AS relation_type, t.name AS target_name,
@@ -231,7 +227,7 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (:Character {id: "char_daiyu"})-[r:关心]->(s:Student {student_id: $sid})
+                MATCH (:Character {id: "char_daiyu"})-[r:关心]->(s:Entity {entity_id: $sid})
                 RETURN r.strength AS strength,
                        r.first_interaction AS first_interaction,
                        r.last_interaction AS last_interaction,
@@ -248,7 +244,7 @@ class Neo4jRepo:
             await session.run(
                 """
                 MATCH (daiyu:Character {id: "char_daiyu"})
-                MATCH (s:Student {student_id: $sid})
+                MATCH (s:Entity {entity_id: $sid})
                 MERGE (daiyu)-[r:关心]->(s)
                 SET r += $props
                 """,
@@ -261,7 +257,7 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (:Character)-[r:关心]->(:Student)
+                MATCH (:Character)-[r:关心]->(:Entity)
                 WHERE r.last_interaction IS NOT NULL
                 SET r.strength = r.strength * exp(-$lambda *
                     (duration.inDays(r.last_interaction, datetime()).days))
@@ -277,9 +273,8 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (s:Student)-[r]-(t)
-                WHERE type(r) IN ['偏科', '情绪倾向', '态度偏好', '社交模式']
-                  AND r.streak_count = 0
+                MATCH (s:Entity)-[r]-(t)
+                WHERE r.streak_count = 0
                   AND r.last_oppose_time IS NOT NULL
                   AND r.C_peak > r.C_trough
                 WITH r, r.C_peak - r.C_trough AS damage
@@ -300,9 +295,8 @@ class Neo4jRepo:
         async with self._driver.session() as session:
             result = await session.run(
                 """
-                MATCH (s:Student)-[r]-(t)
-                WHERE type(r) IN ['偏科','情绪倾向','态度偏好','社交模式']
-                  AND r.conflict_status = 'pending_verification'
+                MATCH (s:Entity)-[r]-(t)
+                WHERE r.conflict_status = 'pending_verification'
                   AND r.pending_since IS NOT NULL
                   AND duration.inDays(r.pending_since, datetime()).days > $days
                 SET r.conflict_status = 'archived',

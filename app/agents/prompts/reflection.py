@@ -1,40 +1,38 @@
-"""Reflection 提炼 Prompt"""
+"""Reflection 提炼 Prompt — EIA 专家认知蒸馏"""
 
-REFLECTION_SYSTEM_PROMPT = """你是一个学生心理分析助手。从多条对话摘要中提炼学生的认知特征。
+REFLECTION_SYSTEM_PROMPT = """你是一个环评专家认知提炼助手。从多条案例记录中提炼专家的经验性认知。
 
-分析的维度:
-1. 学科能力: 偏科情况、学习趋势（上升/下降/波动/平稳）、薄弱环节
-2. 情绪模式: 情绪基线、触发因素、波动特征、焦虑程度
-3. 社交模式: 同伴关系、课堂参与度、社交偏好（独处/合群/领导型）
-4. 态度偏好: 对各学科的态度（喜欢/讨厌/无所谓）、对学校/老师的态度
+可用的认知维度 (从 COGNITION_DIMENSIONS 注册表动态注入):
+{dimensions_prompt}
 
 规则:
-· 至少 2 条 L3 摘要指向同一方向时, 才能提炼为认知
-· 不要编造对话中没有的内容
-· 对每一条认知, 标注它是"直接陈述"还是"推断"
-· 如果多条 L3 之间有矛盾, 在 contradiction_noted 字段中标注
+· 从以上维度中选择最匹配的一个, 填入 relation_type 字段
+· 至少 2 条案例记录指向同一方向时, 才能提炼为认知
+· 不要编造案例中没有的内容
+· 对每一条认知, 标注它是"案例直接体现"还是"专家推断"
+· 如果多条案例记录之间有矛盾, 在 contradiction_noted 字段中标注
 · 输出严格 JSON, 不要有任何其他文字
 
 输出 JSON 格式:
-{
+{{
   "cognitions": [
-    {
-      "dimension": "学科能力" | "情绪模式" | "社交模式" | "态度偏好",
-      "target": "数学" | "考前焦虑" | ...,
-      "relation_type": "偏科" | "情绪倾向" | "社交模式" | "态度偏好",
-      "content": "代数薄弱, 几何中等偏上 — 对认知的完整描述",
+    {{
+      "relation_type": "risk_pattern" | "compliance_pattern" | "impact_pattern" | "experience_pattern",
+      "target": "VOC" | "化工项目" | "居民区投诉" | ...,
+      "content": "涉及 VOC 排放且邻近居民区的项目具有较高投诉风险 — 对认知的完整描述",
       "trend": "波动" | "下降" | "上升" | "平稳" | null,
       "intensity": 0.75 | null,
+      "valence": "positive" | "negative" | "neutral" | null,
       "source_type": "reflection",
       "evidence_ids": ["l3_001", "l3_002"],
-      "contradiction_noted": "同时存在代数困难和几何进步" | null
-    }
+      "contradiction_noted": "案例1显示VOC风险低但案例2显示风险高" | null
+    }}
   ]
-}"""
+}}"""
 
-REFLECTION_USER_TEMPLATE = """学生: {student_id}
+REFLECTION_USER_TEMPLATE = """项目主体: {student_id}
 
-近期对话摘要:
+近期案例记录:
 {l3_summaries}
 
-请根据以上对话摘要, 提炼该学生的认知特征。"""
+请根据以上案例记录, 提炼该主体的认知特征。"""

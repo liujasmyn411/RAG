@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 from app.agents.state import AgentState
-from app.domain.enums import Intent, SafetyCategory, BoundaryTrigger
+from app.domain.enums import Intent, SafetyCategory, BoundaryTrigger, EIATopic
 from app.infrastructure.classifier import ClassifierService
 from app.infrastructure.embedding import get_embedding_service
 from app.repositories.pg_repo import PgRepo
@@ -64,13 +64,13 @@ async def post_processor_node(
         return {"needs_memory_update": False}
 
     student_id = state.get("student_id", "")
-    intent_raw = state.get("current_intent", Intent.DAIYU_CHAT.value)
+    intent_raw = state.get("current_intent", Intent.EIA_CONSULTATION.value)
     safety = state.get("safety") or {}
 
     if safety.get("risk_level") == "flagged":
         return {"needs_memory_update": False}
 
-    if intent_raw != Intent.DAIYU_CHAT.value:
+    if intent_raw != Intent.EIA_CONSULTATION.value:
         return {"needs_memory_update": False}
 
     try:
@@ -94,7 +94,7 @@ async def post_processor_node(
         prev_l3 = await milvus_repo.get_last_l3(student_id)
         prev_l3_id = prev_l3["l3_id"] if prev_l3 else None
         prev_context = (
-            f"{prev_l3.get('topic','')} {prev_l3.get('subject','')}"
+            f"{prev_l3.get('topic','')} {prev_l3.get('pollutant','')}"
             if prev_l3 else ""
         )
 
@@ -219,23 +219,23 @@ async def _write_l3_hot(
     Returns: {"written": bool, "topic": str, "l3_id": str}
     """
     classifier = ClassifierService()
-    quality_level, emotions = await classifier.classify_with_fallback(user_text)
+    quality_level, case_info = await classifier.classify_with_fallback(user_text)
 
     # 按质量等级赋 write_confidence
     if quality_level == 0:
-        write_conf = 0.50  # 完美: emotion+ topic+ concern 齐全
+        write_conf = 0.50  # 完美: risk_level + topic + key_concern 齐全
     elif quality_level == 1:
-        write_conf = 0.40  # 部分: emotion 有, key_concern 空
+        write_conf = 0.40  # 部分: risk_level 有, key_concern 空
     elif quality_level == 2:
         write_conf = 0.30  # 极简: 仅 topic, 低分入库
     else:
         return {"written": False, "topic": "", "l3_id": ""}  # Level 3: 不入库
 
-    topic = emotions.get("topic", "daily_chat")
+    topic = case_info.get("topic", EIATopic.GENERAL_CONSULTATION.value)
     emb_service = get_embedding_service()
 
     # embedding_text 融入上一条 L3 的上下文 (Quick Win 3)
-    base = f"{topic} {emotions.get('emotion_primary','')} {emotions.get('key_concern','')}"
+    base = f"{topic} {case_info.get('risk_level','')} {case_info.get('key_concern','')}"
     if prev_context.strip():
         embedding_text = f"[上文情境] {prev_context.strip()} [当前] {base}"
     else:
@@ -249,10 +249,12 @@ async def _write_l3_hot(
         "student_id": student_id,
         "session_id": session_id,
         "timestamp": int(time.time()),
-        "emotion_primary": emotions.get("emotion_primary", "calm"),
-        "emotion_intensity": emotions.get("intensity", 0.5),
+        "risk_level": case_info.get("risk_level", "medium"),
+        "risk_confidence": case_info.get("risk_confidence", 0.5),
         "topic": topic,
-        "subject": emotions.get("key_concern", ""),
+        "pollutant": case_info.get("pollutant", ""),
+        "sensitive_target": case_info.get("sensitive_target", ""),
+        "risk_event": case_info.get("key_concern", ""),
         "importance": 0.5 if not is_crisis else 1.0,
         "write_confidence": write_conf,
         "cold_ref": cold_id,

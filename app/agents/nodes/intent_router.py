@@ -45,21 +45,21 @@ async def intent_router_node(state: AgentState) -> dict:
 
     # 安全事件强制路由
     if safety.get("category") == SafetyCategory.PSYCH_CRISIS.value:
-        return {"current_intent": Intent.PSYCH_CRISIS.value}
+        return {"current_intent": Intent.RISK_ASSESSMENT.value}
 
     if safety.get("risk_level") == "flagged":
         # 被安全过滤拦截 → 直接生成安全回复, 不进入记忆检索
-        return {"current_intent": Intent.DAIYU_CHAT.value}
+        return {"current_intent": Intent.EIA_CONSULTATION.value}
 
     # 教务查询检测
     for kw in ACADEMIC_KEYWORDS:
         if kw in content:
-            return {"current_intent": Intent.ACADEMIC_QUERY.value}
+            return {"current_intent": Intent.EIA_CONSULTATION.value}
 
     # 危机二次检测 (安全层可能漏过的变体)
     for kw in CRISIS_OVERRIDE_TERMS:
         if kw in content:
-            return {"current_intent": Intent.PSYCH_CRISIS.value}
+            return {"current_intent": Intent.RISK_ASSESSMENT.value}
 
     # 数据查询关键词检测 → 触发 LLM 精分类
     for kw in DATA_OP_KEYWORDS:
@@ -69,6 +69,6 @@ async def intent_router_node(state: AgentState) -> dict:
     # 文学知识检索
     for kw in LITERARY_KEYWORDS:
         if kw in content:
-            return {"current_intent": Intent.LITERARY_QUERY.value}
+            return {"current_intent": Intent.CASE_RETRIEVAL.value}
 
-    return {"current_intent": Intent.DAIYU_CHAT.value}
+    return {"current_intent": Intent.EIA_CONSULTATION.value}

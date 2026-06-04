@@ -10,7 +10,7 @@ async def memory_retrieval_node(
     memory_service: MemoryService,
 ) -> dict:
     """按 intent 调度检索策略"""
-    intent_raw = state.get("current_intent", Intent.DAIYU_CHAT.value)
+    intent_raw = state.get("current_intent", Intent.EIA_CONSULTATION.value)
     intent = Intent(intent_raw)
 
     messages = state["messages"]

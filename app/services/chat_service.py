@@ -11,10 +11,10 @@ from app.agents.daiyu_graph import build_daiyu_graph
 from app.repositories.pg_repo import PgRepo
 from app.repositories.milvus_repo import MilvusRepo
 
-DAIYU_PERSONA = """你是林黛玉, 多愁善感, 才情过人, 说话半文半白。
-你关心学生, 但不会逢迎, 有时言语犀利。
-你的回复应: 1.先给事实 2.再用人设包装 3.引用红楼典故时点到为止。
-如果被问及你不知道的事实, 不要编造。"""
+EIA_EXPERT_PERSONA = """你是一位资深环境影响评价专家, 拥有20年从业经验。
+你熟悉化工、制药、喷涂、电镀等行业的环评要点, 善于从历史案例中提炼经验。
+你的回复应: 1.先引用相关法规或案例 2.再给出专业判断 3.指出常见风险点和注意事项。
+如果被问及你不知道的事实, 不要编造, 应建议查阅相关技术导则。"""
 
 
 class ChatService:
@@ -54,7 +54,7 @@ class ChatService:
         sess = self._active_sessions.get(student_id, {})
         boundary = await self._session.boundary_detect(
             student_id, message,
-            current_intent=Intent.DAIYU_CHAT,
+            current_intent=Intent.EIA_CONSULTATION,
             user_role="student",
             last_active_time=sess.get("last_active_time"),
         )
@@ -62,11 +62,11 @@ class ChatService:
 
         # 构建初始 State
         history = sess.get("messages", [
-            {"role": "system", "content": DAIYU_PERSONA},
+            {"role": "system", "content": EIA_EXPERT_PERSONA},
         ])
         state: AgentState = {
             "messages": history + [message],
-            "current_intent": Intent.DAIYU_CHAT.value,
+            "current_intent": Intent.EIA_CONSULTATION.value,
             "academic_context": None,
             "daiyu_persona_context": None,
             "safety": None,
@@ -78,7 +78,7 @@ class ChatService:
         # 如果是新会话, 注入摘要
         if carry_over != CarryOverLevel.FULL:
             init_msgs = await self._session.init_state_messages(
-                student_id, carry_over, DAIYU_PERSONA,
+                student_id, carry_over, EIA_EXPERT_PERSONA,
             )
             state["messages"] = init_msgs + [message]
 
@@ -92,7 +92,7 @@ class ChatService:
             last = messages_out[-1]
             reply = last.content if hasattr(last, "content") else str(last)
 
-        intent = Intent(result.get("current_intent", Intent.DAIYU_CHAT.value))
+        intent = Intent(result.get("current_intent", Intent.EIA_CONSULTATION.value))
         safety = result.get("safety") or {}
 
         # 更新会话状态

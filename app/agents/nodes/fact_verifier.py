@@ -9,7 +9,7 @@ from app.domain.enums import Intent
 async def fact_verifier_node(state: AgentState) -> dict:
     """教务查询后校验 LLM 回复中的数字是否与 fact_snapshot 一致"""
     intent_raw = state.get("current_intent", "")
-    if intent_raw != Intent.ACADEMIC_QUERY.value:
+    if intent_raw != Intent.EIA_CONSULTATION.value:
         return {}
 
     retrieved = state.get("retrieved_context") or {}

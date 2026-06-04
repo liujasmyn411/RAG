@@ -30,17 +30,18 @@ class MilvusRepo:
     # ═══════════════════════════════════════════════════════════
 
     async def insert_l3(self, embedding: list[float], metadata: dict) -> str:
-        """插入一条 L3-Hot 快照, 返回 l3_id"""
+        """插入一条 L3-Hot 案例快照, 返回 l3_id"""
         data = {
             "l3_id": metadata["l3_id"],
             "student_id": metadata["student_id"],
             "embedding": embedding,
             "session_id": metadata.get("session_id", ""),
             "timestamp": metadata.get("timestamp", int(time.time())),
-            "emotion_primary": metadata.get("emotion_primary", ""),
-            "emotion_intensity": metadata.get("emotion_intensity", 0.5),
+            "risk_level": metadata.get("risk_level", ""),
+            "risk_confidence": metadata.get("risk_confidence", 0.5),
             "topic": metadata.get("topic", ""),
-            "subject": metadata.get("subject", ""),
+            "pollutant": metadata.get("pollutant", ""),
+            "sensitive_target": metadata.get("sensitive_target", ""),
             "importance": metadata.get("importance", 0.5),
             "write_confidence": metadata.get("write_confidence", 0.5),
             "processed_for_l2": "false",
@@ -60,14 +61,14 @@ class MilvusRepo:
         self,
         student_id: str,
         query_vector: list[float],
-        emotion_filter: Optional[list[str]] = None,
+        risk_filter: Optional[list[str]] = None,
         top_k: int = 20,
     ) -> list[dict]:
-        """ANN 检索 L3-Hot (单学生分区)"""
+        """ANN 检索 L3-Hot 案例 (单主体分区)"""
         expr = f'student_id == "{student_id}" and archived == false'
-        if emotion_filter:
-            emotions = ", ".join(f'"{e}"' for e in emotion_filter)
-            expr += f" and emotion_primary in [{emotions}]"
+        if risk_filter:
+            risks = ", ".join(f'"{r}"' for r in risk_filter)
+            expr += f" and risk_level in [{risks}]"
 
         results = self._client.search(
             collection_name=self._l3_collection,
@@ -77,8 +78,8 @@ class MilvusRepo:
             limit=top_k,
             output_fields=[
                 "l3_id", "student_id", "session_id", "timestamp",
-                "emotion_primary", "emotion_intensity", "topic", "subject",
-                "importance", "write_confidence", "cold_ref",
+                "risk_level", "risk_confidence", "topic", "pollutant",
+                "sensitive_target", "importance", "write_confidence", "cold_ref",
                 "prev_l3_id", "episode_id", "embedding_text",
             ],
         )
@@ -100,14 +101,14 @@ class MilvusRepo:
         )
 
     async def get_last_l3(self, student_id: str) -> Optional[dict]:
-        """查询学生最近一条 L3（按 timestamp 降序）"""
+        """查询主体最近一条 L3 案例（按 timestamp 降序）"""
         results = self._client.query(
             collection_name=self._l3_collection,
             filter=f'student_id == "{student_id}" and archived == false',
             output_fields=[
                 "l3_id", "student_id", "session_id", "timestamp",
-                "emotion_primary", "topic", "subject", "trigger",
-                "embedding_text", "episode_id",
+                "risk_level", "topic", "pollutant", "risk_event",
+                "sensitive_target", "embedding_text", "episode_id",
             ],
             limit=1,
             sort_by="timestamp DESC",
@@ -133,8 +134,8 @@ class MilvusRepo:
                 f" and archived == false"
             ),
             output_fields=[
-                "l3_id", "timestamp", "emotion_primary", "topic",
-                "subject", "embedding_text",
+                "l3_id", "timestamp", "risk_level", "topic",
+                "pollutant", "sensitive_target", "embedding_text",
             ],
             limit=1,
             sort_by="timestamp DESC",
@@ -149,8 +150,8 @@ class MilvusRepo:
                 f" and archived == false"
             ),
             output_fields=[
-                "l3_id", "timestamp", "emotion_primary", "topic",
-                "subject", "embedding_text",
+                "l3_id", "timestamp", "risk_level", "topic",
+                "pollutant", "sensitive_target", "embedding_text",
             ],
             limit=1,
             sort_by="timestamp ASC",
@@ -164,7 +165,7 @@ class MilvusRepo:
     async def pull_unprocessed(
         self, student_id: str, limit: int = 30
     ) -> list[dict]:
-        """拉取未处理的 L3-Hot (用于 Reflection)"""
+        """拉取未处理的 L3-Hot 案例 (用于 Reflection)"""
         results = self._client.query(
             collection_name=self._l3_collection,
             filter=(
@@ -174,8 +175,8 @@ class MilvusRepo:
             ),
             output_fields=[
                 "l3_id", "student_id", "session_id", "timestamp",
-                "emotion_primary", "emotion_intensity", "topic", "subject",
-                "importance", "write_confidence", "cold_ref",
+                "risk_level", "risk_confidence", "topic", "pollutant",
+                "sensitive_target", "importance", "write_confidence", "cold_ref",
                 "prev_l3_id", "episode_id", "embedding_text",
             ],
             limit=limit,

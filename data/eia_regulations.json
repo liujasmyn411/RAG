@@ -1,0 +1,128 @@
+[
+  {
+    "law": "中华人民共和国环境影响评价法",
+    "article": "第十六条",
+    "industry": "全行业",
+    "pollutant": null,
+    "keywords": ["环评分类管理", "环境影响报告书", "报告表", "登记表"],
+    "requirement": "根据建设项目对环境的影响程度，实行分类管理：可能造成重大环境影响的编制报告书，轻度影响的编制报告表，影响很小的填报登记表",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "中华人民共和国环境影响评价法",
+    "article": "第二十条",
+    "industry": "化工",
+    "pollutant": "VOC",
+    "keywords": ["公众参与", "征求意见", "听证会"],
+    "requirement": "对环境可能造成重大影响、应当编制环境影响报告书的建设项目，建设单位应当在报批前举行论证会、听证会或采取其他形式征求有关单位、专家和公众的意见",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "中华人民共和国环境影响评价法",
+    "article": "第二十七条",
+    "industry": "全行业",
+    "pollutant": null,
+    "keywords": ["后评价", "跟踪评价", "整改"],
+    "requirement": "在项目建设、运行过程中产生不符合经审批的环境影响评价文件的情形的，建设单位应当组织环境影响后评价，采取改进措施",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "建设项目环境保护管理条例",
+    "article": "第九条",
+    "industry": "全行业",
+    "pollutant": null,
+    "keywords": ["三同时", "环保设施", "同时设计", "同时施工", "同时投产"],
+    "requirement": "建设项目需要配套建设的环境保护设施，必须与主体工程同时设计、同时施工、同时投产使用",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "建设项目环境保护管理条例",
+    "article": "第十五条",
+    "industry": "化工",
+    "pollutant": "COD",
+    "keywords": ["排污许可", "总量控制", "排放标准"],
+    "requirement": "建设项目在投入生产或使用前，应取得排污许可证。排污许可证应载明排放污染物的种类、浓度、总量等",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "排污许可管理条例",
+    "article": "第二十条",
+    "industry": "化工",
+    "pollutant": "重金属",
+    "keywords": ["自行监测", "台账记录", "执行报告"],
+    "requirement": "排污单位应按照排污许可证规定开展自行监测，保存原始监测记录，并如实公开污染物排放信息",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "大气污染防治法",
+    "article": "第十八条",
+    "industry": "喷涂",
+    "pollutant": "VOC",
+    "keywords": ["VOC治理", "无组织排放", "收集效率"],
+    "requirement": "产生含VOC废气的生产和服务活动，应当在密闭空间或设备中进行，并按规定安装、使用污染防治设施；无法密闭的应采取措施减少废气排放",
+    "related_dimension": "risk_pattern"
+  },
+  {
+    "law": "水污染防治法",
+    "article": "第三十三条",
+    "industry": "化工",
+    "pollutant": "COD",
+    "keywords": ["地下水", "防渗", "监测井"],
+    "requirement": "化学品生产企业以及工业集聚区应采取防渗漏等措施，防止地下水污染，并建设地下水水质监测井进行监测",
+    "related_dimension": "risk_pattern"
+  },
+  {
+    "law": "固体废物污染环境防治法",
+    "article": "第七十九条",
+    "industry": "化工",
+    "pollutant": "危废",
+    "keywords": ["危废处置", "贮存标准", "台账管理"],
+    "requirement": "产生危险废物的单位应按照国家有关规定和环境保护标准要求贮存、利用、处置危险废物，不得擅自倾倒、堆放",
+    "related_dimension": "risk_pattern"
+  },
+  {
+    "law": "环境影响评价技术导则 大气环境 (HJ 2.2-2018)",
+    "article": "技术导则",
+    "industry": "化工",
+    "pollutant": "VOC",
+    "keywords": ["大气防护距离", "敏感点", "叠加影响"],
+    "requirement": "对大气环境影响评价范围内环境空气敏感目标进行评价，需考虑污染物叠加影响和大气环境防护距离",
+    "related_dimension": "impact_pattern"
+  },
+  {
+    "law": "环境影响评价技术导则 地下水环境 (HJ 610-2016)",
+    "article": "技术导则",
+    "industry": "化工",
+    "pollutant": "重金属",
+    "keywords": ["地下水评价", "包气带防污性能", "含水层"],
+    "requirement": "建设项目地下水环境影响评价应根据包气带防污性能、含水层易污染特征等确定评价工作等级，重点关注地下水敏感 target",
+    "related_dimension": "impact_pattern"
+  },
+  {
+    "law": "建设项目环境影响评价公众参与办法",
+    "article": "全文",
+    "industry": "全行业",
+    "pollutant": null,
+    "keywords": ["公示", "公众参与", "信息公开", "意见反馈"],
+    "requirement": "建设单位应在确定环评机构后7个工作日内进行第一次公示，在环评报告书征求意见稿形成后进行第二次公示，公示期不少于10个工作日",
+    "related_dimension": "experience_pattern"
+  },
+  {
+    "law": "建设项目环境影响评价分类管理名录 (2021版)",
+    "article": "分类原则",
+    "industry": "化工",
+    "pollutant": null,
+    "keywords": ["分类管理", "环评等级", "豁免管理"],
+    "requirement": "化工类项目根据产品类型、产能规模、工艺特征等确定环评等级，涉及重点监管危险化工工艺的应编制报告书",
+    "related_dimension": "compliance_pattern"
+  },
+  {
+    "law": "关于进一步加强产业园区规划环境影响评价工作的意见",
+    "article": "政策文件",
+    "industry": "工业园区",
+    "pollutant": null,
+    "keywords": ["规划环评", "累积影响", "跟踪评价"],
+    "requirement": "产业园区规划环评应突出累积环境影响评价和人群健康风险评价，已实施5年以上的园区规划应开展跟踪评价",
+    "related_dimension": "impact_pattern"
+  }
+]

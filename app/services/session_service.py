@@ -54,7 +54,7 @@ class SessionService:
             }
 
         # Rule 1: 危机强制续接
-        if current_intent == Intent.PSYCH_CRISIS:
+        if current_intent == Intent.RISK_ASSESSMENT:
             return {
                 "is_new_session": False,
                 "carry_over_level": CarryOverLevel.FULL,

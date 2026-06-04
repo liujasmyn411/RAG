@@ -33,7 +33,7 @@ async def classify_intent_node(state: AgentState) -> dict:
     """LLM 精分类用户意图"""
     messages = state.get("messages", [])
     if not messages:
-        return {"current_intent": Intent.DAIYU_CHAT.value}
+        return {"current_intent": Intent.EIA_CONSULTATION.value}
 
     last_msg = messages[-1]
     content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
@@ -54,9 +54,9 @@ async def classify_intent_node(state: AgentState) -> dict:
         if intent_str == "data_query" and confidence >= 0.7:
             return {"current_intent": Intent.DATA_QUERY.value}
         elif intent_str == "academic_query" and confidence >= 0.7:
-            return {"current_intent": Intent.ACADEMIC_QUERY.value}
+            return {"current_intent": Intent.EIA_CONSULTATION.value}
 
-        return {"current_intent": Intent.DAIYU_CHAT.value}
+        return {"current_intent": Intent.EIA_CONSULTATION.value}
 
     except Exception:
         # LLM 调用失败 → 回退，由关键词路由决定

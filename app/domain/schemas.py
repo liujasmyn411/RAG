@@ -6,8 +6,8 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from app.domain.enums import (
-    EmotionPrimary,
-    Topic,
+    CaseRiskLevel,
+    EIATopic,
     Intent,
     SafetyCategory,
     RiskLevel,
@@ -32,20 +32,19 @@ class ChatResponse(BaseModel):
 # ── L3 摘要 ──
 
 class L3SummarySchema(BaseModel):
-    """L3-Hot 结构化摘要, 写入 Milvus 前校验"""
+    """L3-Hot 案例结构化摘要, 写入 Milvus 前校验"""
     l3_id: str
     student_id: str
     session_id: str
     timestamp: int
 
-    emotion_primary: EmotionPrimary
-    emotion_secondary: Optional[EmotionPrimary] = None
-    emotion_intensity: float = Field(ge=0, le=1)
-    topic: Topic
-    subject: Optional[str] = None
-    trigger: str = ""
-    student_self_report: str = ""
-    behavioral_signal: str = ""
+    risk_level: CaseRiskLevel = CaseRiskLevel.MEDIUM
+    risk_confidence: float = Field(ge=0, le=1, default=0.5)
+    topic: EIATopic = EIATopic.GENERAL_CONSULTATION
+    pollutant: Optional[str] = None
+    risk_event: str = ""
+    sensitive_target: str = ""
+    project_description: str = ""
 
     importance: float = Field(ge=0, le=1)
     write_confidence: float = Field(ge=0, le=1)

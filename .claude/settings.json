@@ -9,7 +9,8 @@
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); paths=[p for p in d.get\\('paths',{}\\) if 'nl' in p]; print\\('NL paths:', paths\\)\")",
       "Bash(python -c ' *)",
       "Bash(cd /d d:\\\\third_item)",
-      "Bash(mysql -h 127.0.0.1 -P 3307 -u student -pstudent123 -e \"SELECT VERSION\\(\\);\")"
+      "Bash(mysql -h 127.0.0.1 -P 3307 -u student -pstudent123 -e \"SELECT VERSION\\(\\);\")",
+      "Bash(python evaluation/run_eval.py --dry-run)"
     ]
   }
 }
